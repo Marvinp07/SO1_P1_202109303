@@ -9,3 +9,5 @@
 *.swp
 *.tmp
 *.bak
+# Ignorar binario del daemon
+./daemon
