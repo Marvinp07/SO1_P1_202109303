@@ -1,0 +1,11 @@
+# Ignorar todos los archivos de logs
+*.log
+
+# Ignorar archivos temporales de Docker
+*.pid
+*.sock
+
+# Ignorar archivos de sistema
+*.swp
+*.tmp
+*.bak
