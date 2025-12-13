@@ -1,2 +1,2 @@
 FROM python:3.9-slim
-CMD ["python3", "-c", "x = ['a'*10000000 for _ in range(100]; import time; time.sleep(3600)"]
+CMD ["python3", "-c", "x = ['a'*10000000 for _ in range(100)]; import time; time.sleep(3600)"]
