@@ -1,85 +1,70 @@
-#include "proc_common.h"
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/sched/signal.h>
+#include <linux/mm.h>
+#include <linux/uaccess.h>
 
-#define PROC_NAME "continfo_so1_" CARNET
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Marvin Paz");
+MODULE_DESCRIPTION("Contenedores info module");
 
-/* Heurística simple: procesos con nombre que contenga "cpu_high", "ram_high" o "low" */
-static bool is_container_process(struct task_struct *task)
-{
-    char comm[TASK_COMM_LEN];
-    get_task_comm(comm, task);
-    if (strstr(comm, "cpu_high") || strstr(comm, "ram_high") || strstr(comm, "low"))
-        return true;
+static bool is_container_process(const char *comm) {
+    // Ajuste: detecta procesos típicos de tus contenedores
+    if (strcmp(comm, "sleep") == 0) return true;
+    if (strcmp(comm, "python3") == 0) return true;
     return false;
 }
 
-static int proc_show(struct seq_file *m, void *v)
-{
-    unsigned long total_kb, free_kb, used_kb;
-    get_sys_mem_kb(&total_kb, &free_kb, &used_kb);
+static int continfo_show(struct seq_file *m, void *v) {
+    struct task_struct *task;
+    unsigned long totalram = totalram_pages() << (PAGE_SHIFT - 10);
+    unsigned long freeram = global_zone_page_state(NR_FREE_PAGES) << (PAGE_SHIFT - 10);
+    unsigned long usedram = totalram - freeram;
 
-    seq_printf(m, "{\n  \"memory\": {\"total_kb\": %lu, \"free_kb\": %lu, \"used_kb\": %lu},\n",
-               total_kb, free_kb, used_kb);
+    seq_printf(m, "{\n  \"memory\": {\"total_kb\": %lu, \"free_kb\": %lu, \"used_kb\": %lu},\n", 
+               totalram, freeram, usedram);
     seq_puts(m, "  \"processes\": [\n");
 
-    bool first = true;
-    struct task_struct *task;
-
-    rcu_read_lock();
     for_each_process(task) {
-        if (task->flags & PF_KTHREAD) continue;
-        if (!is_container_process(task)) continue;
+        if (task->flags & PF_KTHREAD) continue; // ignora hilos del kernel
+        if (!is_container_process(task->comm)) continue;
 
-        unsigned long vsz, rss;
-        calc_vsz_rss_kb(task, &vsz, &rss);
-        int mem_pct = calc_mem_percent(rss, total_kb);
+        unsigned long rss = get_mm_rss(task->mm) << (PAGE_SHIFT - 10);
+        unsigned long vsz = task->mm ? task->mm->total_vm << (PAGE_SHIFT - 10) : 0;
+        int mem_percent = totalram ? (rss * 100) / totalram : 0;
 
-        char comm[TASK_COMM_LEN];
-        get_task_comm(comm, task);
-
-        if (!first) seq_puts(m, ",\n");
-        first = false;
-
-        seq_printf(m,
-            "    {\"pid\": %d, \"name\": \"%s\", \"vsz_kb\": %lu, \"rss_kb\": %lu, \"mem_percent\": %d}",
-            task->pid, comm, vsz, rss, mem_pct);
+        seq_printf(m, "    {\"pid\": %d, \"name\": \"%s\", \"vsz_kb\": %lu, \"rss_kb\": %lu, \"mem_percent\": %d},\n",
+                   task->pid, task->comm, vsz, rss, mem_percent);
     }
-    rcu_read_unlock();
 
-    seq_puts(m, "\n  ]\n}\n");
+    seq_puts(m, "  ]\n}\n");
     return 0;
 }
 
-static int proc_open(struct inode *inode, struct file *file)
-{
-    return single_open(file, proc_show, NULL);
+static int continfo_open(struct inode *inode, struct file *file) {
+    return single_open(file, continfo_show, NULL);
 }
 
-static const struct proc_ops pops = {
-    .proc_open    = proc_open,
-    .proc_read    = seq_read,
-    .proc_lseek   = seq_lseek,
+static const struct proc_ops continfo_fops = {
+    .proc_open = continfo_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
     .proc_release = single_release,
 };
 
-static int __init continfo_init(void)
-{
-    if (!proc_create(PROC_NAME, 0444, NULL, &pops)) {
-        pr_err("Failed to create /proc/%s\n", PROC_NAME);
-        return -ENOMEM;
-    }
+static int __init continfo_init(void) {
+    proc_create("continfo_so1_202109303", 0, NULL, &continfo_fops);
     pr_info("continfo module loaded\n");
     return 0;
 }
 
-static void __exit continfo_exit(void)
-{
-    remove_proc_entry(PROC_NAME, NULL);
+static void __exit continfo_exit(void) {
+    remove_proc_entry("continfo_so1_202109303", NULL);
     pr_info("continfo module unloaded\n");
 }
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Marvin");
-MODULE_DESCRIPTION("Container processes info in /proc (JSON)");
 
 module_init(continfo_init);
 module_exit(continfo_exit);
