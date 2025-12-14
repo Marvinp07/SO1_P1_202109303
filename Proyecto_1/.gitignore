@@ -1,0 +1,34 @@
+# Ignorar todos los archivos de logs
+*.log
+
+# Ignorar archivos temporales de Docker
+*.pid
+*.sock
+
+# Ignorar archivos de sistema
+*.swp
+*.tmp
+*.bak
+
+# Ignorar binario del daemon
+./daemon
+
+# Archivos compilados del módulo
+*.o
+*.ko
+*.mod.c
+*.mod.o
+*.symvers
+*.order
+
+# Archivos de dependencias y comandos
+*.cmd
+*.markers
+*.tmp_versions/
+
+# Archivos de respaldo o swap
+*~
+*.swp
+
+# Archivos de log (si generas alguno en esta carpeta)
+*.log

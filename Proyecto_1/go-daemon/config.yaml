@@ -1,0 +1,16 @@
+daemon:
+  interval_seconds: 20
+  log_path: "../logs/daemon.log"
+  error_log_path: "../logs/daemon_error.log"
+  db_path: "metrics.db"
+
+filters:
+  images:
+    - "low"
+    - "cpu_high"
+    - "ram_high"
+  names: []
+
+http:
+  enabled: true
+  addr: "0.0.0.0:8080"
