@@ -14,6 +14,7 @@ import (
     "proyecto/go-daemon/internal/logger"
     "proyecto/go-daemon/internal/metrics"
     "proyecto/go-daemon/internal/kernelproc"
+    "proyecto/go-daemon/internal/storage"
 )
 
 func main() {
@@ -38,6 +39,14 @@ func main() {
         elog.Error("Error creando cliente Docker: %v", err)
         os.Exit(1)
     }
+
+    // Inicializar SQLite
+    db, err := storage.InitDB(cfg.Daemon.DBPath) // usa la ruta del config.yaml
+    if err != nil {
+        elog.Error("Error inicializando SQLite: %v", err)
+        os.Exit(1)
+    }
+    defer db.Close()
 
     // Contexto y señales
     ctx, cancel := context.WithCancel(context.Background())
@@ -93,19 +102,46 @@ func main() {
             // Actualizar snapshot para HTTP
             metrics.UpdateSnapshot(mset)
 
+            // Leer sysinfo
             sysSnap, err := kernelproc.ReadProcJSON("/proc/sysinfo_so1_202109303")
             if err == nil {
                 log.Info("Kernel SYS: Total=%dKB Free=%dKB Used=%dKB Proc=%d",
                     sysSnap.Memory.TotalKB, sysSnap.Memory.FreeKB, sysSnap.Memory.UsedKB, len(sysSnap.Processes))
+
+                if err := storage.InsertSysInfo(sysSnap); err != nil {
+                    elog.Error("Error insertando sysinfo: %v", err)
+                }
             } else {
                 elog.Error("Error leyendo sysinfo: %v", err)
             }
 
+
+            // Leer continfo
             contSnap, err := kernelproc.ReadProcJSON("/proc/continfo_so1_202109303")
             if err == nil {
                 log.Info("Kernel CONT: Proc=%d", len(contSnap.Processes))
+
+                if err := storage.InsertContInfo(contSnap); err != nil {
+                    elog.Error("Error insertando continfo: %v", err)
+                }
             } else {
                 elog.Error("Error leyendo continfo: %v", err)
+            }
+
+
+            // Guardar en SQLite
+            for _, m := range mset {
+                if err := storage.InsertDockerMetrics(m); err != nil {
+                    elog.Error("Error insertando docker metrics: %v", err)
+                }
+            }
+
+            if err := storage.InsertSysInfo(sysSnap); err != nil {
+                elog.Error("Error insertando sysinfo: %v", err)
+            }
+
+            if err := storage.InsertContInfo(contSnap); err != nil {
+                elog.Error("Error insertando continfo: %v", err)
             }
 
         case s := <-sigs:

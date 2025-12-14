@@ -24,23 +24,30 @@ static int continfo_show(struct seq_file *m, void *v) {
     unsigned long freeram = global_zone_page_state(NR_FREE_PAGES) << (PAGE_SHIFT - 10);
     unsigned long usedram = totalram - freeram;
 
-    seq_printf(m, "{\n  \"memory\": {\"total_kb\": %lu, \"free_kb\": %lu, \"used_kb\": %lu},\n", 
-               totalram, freeram, usedram);
+    seq_printf(m,
+        "{\n  \"memory\": {\"total_kb\": %lu, \"free_kb\": %lu, \"used_kb\": %lu},\n",
+        totalram, freeram, usedram);
+
     seq_puts(m, "  \"processes\": [\n");
 
+    bool first = true;
     for_each_process(task) {
         if (task->flags & PF_KTHREAD) continue; // ignora hilos del kernel
         if (!is_container_process(task->comm)) continue;
 
-        unsigned long rss = get_mm_rss(task->mm) << (PAGE_SHIFT - 10);
+        unsigned long rss = task->mm ? get_mm_rss(task->mm) << (PAGE_SHIFT - 10) : 0;
         unsigned long vsz = task->mm ? task->mm->total_vm << (PAGE_SHIFT - 10) : 0;
         int mem_percent = totalram ? (rss * 100) / totalram : 0;
 
-        seq_printf(m, "    {\"pid\": %d, \"name\": \"%s\", \"vsz_kb\": %lu, \"rss_kb\": %lu, \"mem_percent\": %d},\n",
-                   task->pid, task->comm, vsz, rss, mem_percent);
+        if (!first) seq_puts(m, ",\n");
+        first = false;
+
+        seq_printf(m,
+            "    {\"pid\": %d, \"name\": \"%s\", \"vsz_kb\": %lu, \"rss_kb\": %lu, \"mem_percent\": %d}",
+            task->pid, task->comm, vsz, rss, mem_percent);
     }
 
-    seq_puts(m, "  ]\n}\n");
+    seq_puts(m, "\n  ]\n}\n");
     return 0;
 }
 
@@ -49,9 +56,9 @@ static int continfo_open(struct inode *inode, struct file *file) {
 }
 
 static const struct proc_ops continfo_fops = {
-    .proc_open = continfo_open,
-    .proc_read = seq_read,
-    .proc_lseek = seq_lseek,
+    .proc_open    = continfo_open,
+    .proc_read    = seq_read,
+    .proc_lseek   = seq_lseek,
     .proc_release = single_release,
 };
 

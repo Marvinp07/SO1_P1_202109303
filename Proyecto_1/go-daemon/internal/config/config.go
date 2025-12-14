@@ -10,6 +10,7 @@ type DaemonCfg struct {
     IntervalSeconds int    `yaml:"interval_seconds"`
     LogPath         string `yaml:"log_path"`
     ErrorLogPath    string `yaml:"error_log_path"`
+    DBPath          string `yaml:"db_path"`
 }
 
 type FiltersCfg struct {
