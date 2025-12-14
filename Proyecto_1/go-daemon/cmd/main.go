@@ -13,6 +13,7 @@ import (
     "proyecto/go-daemon/internal/httpserver"
     "proyecto/go-daemon/internal/logger"
     "proyecto/go-daemon/internal/metrics"
+    "proyecto/go-daemon/internal/kernelproc"
 )
 
 func main() {
@@ -91,6 +92,21 @@ func main() {
 
             // Actualizar snapshot para HTTP
             metrics.UpdateSnapshot(mset)
+
+            sysSnap, err := kernelproc.ReadProcJSON("/proc/sysinfo_so1_202109303")
+            if err == nil {
+                log.Info("Kernel SYS: Total=%dKB Free=%dKB Used=%dKB Proc=%d",
+                    sysSnap.Memory.TotalKB, sysSnap.Memory.FreeKB, sysSnap.Memory.UsedKB, len(sysSnap.Processes))
+            } else {
+                elog.Error("Error leyendo sysinfo: %v", err)
+            }
+
+            contSnap, err := kernelproc.ReadProcJSON("/proc/continfo_so1_202109303")
+            if err == nil {
+                log.Info("Kernel CONT: Proc=%d", len(contSnap.Processes))
+            } else {
+                elog.Error("Error leyendo continfo: %v", err)
+            }
 
         case s := <-sigs:
             log.Info("Recibida señal: %s. Deteniendo daemon...", s.String())
