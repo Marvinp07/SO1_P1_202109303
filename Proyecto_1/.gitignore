@@ -32,3 +32,7 @@
 
 # Archivos de log (si generas alguno en esta carpeta)
 *.log
+
+# Archivos de Dashboard 
+grafana-data/
+data/
