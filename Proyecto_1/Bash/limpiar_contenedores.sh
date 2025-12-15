@@ -1,10 +1,12 @@
 #!/bin/bash
-LOGFILE="/home/marvinpaz/Documentos/SOPES1/Proyecto/logs/limpiar.log"
+
+LOGFILE="/var/log/limpiar.log"
 
 # Crear log si no existe
 touch "$LOGFILE"
 
 echo "==== $(date) ====" >> "$LOGFILE"
-echo "Eliminando todos los contenedores..." >> "$LOGFILE"
+echo "Eliminando contenedores de prueba..." >> "$LOGFILE"
 
-docker rm -f $(docker ps -aq) >> "$LOGFILE" 2>&1
+# Solo eliminar los que tengan la etiqueta test_container
+docker rm -f $(docker ps -aq --filter "label=test_container") >> "$LOGFILE" 2>&1
